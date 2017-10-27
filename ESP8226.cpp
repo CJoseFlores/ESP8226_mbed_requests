@@ -16,19 +16,86 @@ ESP8226::ESP8226(PinName rx, PinName tx, int baudRate, Serial *PC) : esp(rx, tx)
  */
 void ESP8226::reset()
 {
-    esp.printf("AT+RST"); //Sends RST Command to chip.
+    string reply; //Used to store reply.
+    
+    esp.printf("AT+RST\r\n"); //Sends RST Command to chip.
     wait(ESP8226_RESET_WAIT);    //Wait for response.
     getReply(ESP8226_RESET_TIMEOUT);
-    printReply(); //TO-BE-DELETED
+    
+    //Print out reply. TO BE DELETED, FOR DEBUGGING.
+    reply = buff;
+    if(reply.find("OK") != string::npos) {
+        pc->printf("Module Reset\n\r");
+        
+    }
+    else
+    {
+        pc->printf("ERROR: NOT RESET\n\r");
+    }
+    //pc->printf("%s\n\r", buff);
+}
+
+void ESP8226::setMode()
+{   
+    esp.printf("AT+CWMODE=1\r\n");
+    wait(ESP8226_RESET_WAIT);
+    //getReply(ESP8226_RESET_TIMEOUT);
+    //pc->printf("%s\n\r", buff);
+    
+}
+
+void ESP8226::setConnectionMode()
+{
+    esp.printf("AT+CIPMUX=1\r\n");
+    wait(ESP8226_RESET_WAIT);
+    //getReply(ESP8226_RESET_TIMEOUT);
+    //pc->printf("%s\n\r", buff);
 }
 
 /**
  * Connects ESP8226 to specified network with specified credentials.
  * @return A message confirming the chip successfully connected to network.
  */
-string ESP8226::connect(string ssid, string passwd)
+void ESP8226::connect(string ssid, string passwd)
 {
-    return "";
+    char *cmd; // Command to send to chip.
+    size_t found; // Used to see if "OK" is found.
+    string reply; // Store reply from chip.
+    string strcmd = "AT+CWJAP=\"" + ssid +"\",\"" + passwd + "\"" + "\r\n";
+    
+    cmd = &strcmd[0u]; //Reference first element of strcmd, i.e. convert to char array.
+    //pc->printf("%s\n\r", cmd);
+    esp.printf(cmd);
+    pc->printf("Connecting...\n\r");
+    wait(ESP8226_CONNECT_WAIT);
+    getReply(ESP8226_CONNECTION_TIMEOUT);
+    
+    //Print out reply. TO BE DELETED, FOR DEBUGGING.
+    reply = buff;
+    found = reply.find("OK");
+    
+    pc->printf("Resolving...\n\r");
+    
+    if(found != string::npos) {
+        pc->printf("Connected!\n\r");
+    }
+    else {
+        pc->printf("Cannot connect to wifi\n\r");
+    }
+    
+}
+
+void ESP8226::getIPInfo()
+{
+    esp.printf("AT+CIFSR\r\n");
+    wait(ESP8226_IP_INFO_WAIT);
+    getReply(ESP8226_IP_INFO_TIMEOUT);
+    //pc->printf("%s\n\r", buff);
+    
+    esp.printf("AT+CIPSTATUS\r\n");
+    wait(ESP8226_IP_INFO_WAIT);
+    getReply(ESP8226_IP_INFO_TIMEOUT);
+    //pc->printf("%s\n\r", buff);
 }
 
 /**
@@ -69,13 +136,4 @@ void ESP8226::getReply(int timeOut)
     //Stop and reset timer.
     t1.stop();
     t1.reset();
-}
-
-//MAKE SURE TO DELETE THIS EVENTUALLY, USED FOR DEBUGGING.
-void ESP8226::printReply()
-{
-    string reply(buff);
-    if(reply.find("OK")) {
-        pc->printf("Module Reset\n\r");
-    }
 }
